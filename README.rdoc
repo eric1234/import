@@ -1,0 +1,89 @@
+= Description
+
+A framework for importing data from one system to the other. Ideal for
+keeping separate applications talking to each other through API's.
+
+This framework is independent of any communication method. It is up
+to you to implement "pull" to read in the data and implement
+"attributes" convert the relevant data into a hash. The saving side needs
+to also implement "create" and "update" to correctly update the slave
+side.
+
+This is not currently bi-directional. One side is considered the master
+side and the other side the slave. When the sync happens the slave adds
+any missing records, updates any that have been updated in master and
+remove any that are no longer in master.
+
+This library is thread-safe and internally uses threads to fetch from
+both sources at the same time.
+
+= Usage
+
+    class FooInc < Import::Source
+
+      # Should return array of all objects being synced.
+      def pull
+        BaseCamp::TimeEntry.all
+      end
+
+      # Will convert an object in this source to a hash
+      def attributes(obj)
+        {
+          :summary    => obj.to_s,
+          :billed_on  => obj.date,
+          :hours      => obj.rounded_hours,
+          :rate       => obj.rate,
+          :project    => obj.project.to_s,
+          :url        => obj.url,
+          :source     => 'Foo Inc.',
+        }
+      end
+
+      # Will return the value used to match the records up with.
+      def match_id(obj)
+        obj.id
+      end
+
+    end
+
+    class BarCorp < Import::Source
+
+      # Should return array of all objects being synced.
+      def pull
+        Billable.find :all, :params => {:source => 'FooInc.'}
+      end
+
+      # Will convert an object in this source to a hash
+      def attributes(obj)
+        {
+          :summary    => obj.summary,
+          :billed_on  => obj.billed_on,
+          :hours      => obj.hours,
+          :rate       => obj.rate,
+          :project    => obj.project,
+          :url        => obj.url,
+          :source     => obj.source,
+        }
+      end
+
+      # Will return the value used to match the records up with.
+      def match_id(obj)
+        obj.foreign_id
+      end
+
+      def create(match_id, attributes)
+        Billable.create attributes.merge(:foreign_id => match_id)
+      end
+
+      def update(obj, attributes)
+        obj.load attributes
+        obj.save!
+      end
+
+      def destroy(obj)
+        obj.destroy
+      end
+
+    end
+
+    BarCorp.import FooCorp
