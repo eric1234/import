@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
 
-  s.name        = "import"
+  s.name        = "import_framework"
   s.version     = '0.0.1'
   s.authors     = ['Eric Anderson']
   s.email       = ['eric@pixelwareinc.com']
